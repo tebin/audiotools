@@ -97,11 +97,17 @@ class FFMPEGMixin:
         """
         loudness = []
 
-        with tempfile.NamedTemporaryFile(suffix=".wav") as f:
-            for i in range(self.batch_size):
-                self[i].write(f.name)
-                loudness_stats = r128stats(f.name, quiet=quiet)
-                loudness.append(loudness_stats["I"])
+        name = "audiotool.wav"
+        for i in range(self.batch_size):
+            self[i].write(name)
+            loudness_stats = r128stats(name, quiet=quiet)
+            loudness.append(loudness_stats["I"])
+
+        # with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+        #     for i in range(self.batch_size):
+        #         self[i].write(f.name)
+        #         loudness_stats = r128stats(f.name, quiet=quiet)
+        #         loudness.append(loudness_stats["I"])
 
         self._loudness = torch.from_numpy(np.array(loudness)).float()
         return self.loudness()
@@ -128,14 +134,26 @@ class FFMPEGMixin:
         if sample_rate == self.sample_rate:
             return self
 
-        with tempfile.NamedTemporaryFile(suffix=".wav") as f:
-            self.write(f.name)
-            f_out = f.name.replace("wav", "rs.wav")
-            command = f"ffmpeg -i {f.name} -ar {sample_rate} {f_out}"
-            if quiet:
-                command += " -hide_banner -loglevel error"
-            subprocess.check_call(shlex.split(command))
-            resampled = AudioSignal(f_out)
+        name = "audiotool.wav"
+        import os
+        os.remove(name)
+        os.remove(name.replace("wav", "rs.wav"))
+        self.write(name)
+        f_out = name.replace("wav", "rs.wav")
+        command = f"ffmpeg -i {name} -ar {sample_rate} {f_out}"
+        if quiet:
+            command += " -hide_banner -loglevel error"
+        subprocess.check_call(shlex.split(command))
+        resampled = AudioSignal(f_out)
+
+        # with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+        #     self.write(f.name)
+        #     f_out = f.name.replace("wav", "rs.wav")
+        #     command = f"ffmpeg -i {f.name} -ar {sample_rate} {f_out}"
+        #     if quiet:
+        #         command += " -hide_banner -loglevel error"
+        #     subprocess.check_call(shlex.split(command))
+        #     resampled = AudioSignal(f_out)
         return resampled
 
     @classmethod
